@@ -1,0 +1,27 @@
+{
+  "name": "wisipremi",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "etl:inspect": "tsx etl/import_bag_premiums.ts inspect",
+    "etl:import": "tsx etl/import_bag_premiums.ts import",
+    "etl:regions": "tsx etl/import_bag_premiums.ts regions"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "csv-parse": "^5.5.6",
+    "iconv-lite": "^0.6.3",
+    "tsx": "^4.16.0",
+    "vite": "^5.4.0"
+  }
+}
