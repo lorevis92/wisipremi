@@ -3,6 +3,10 @@ import { supabase } from "./supabaseClient";
 // TODO: aggiornare al prossimo import UFSP (vedi etl/import_bag_premiums.ts --year)
 export const PREMIUM_YEAR = 2026;
 
+// Ordine fisso dei 4 tariff_code noti nei dati UFSP - usato sia per le card
+// descrittive dei modelli sia per l'ordine delle colonne della griglia.
+export const TARIFF_CODE_ORDER = ["TAR-BASE", "TAR-HAM", "TAR-HMO", "TAR-DIV"];
+
 /**
  * Risolve un CAP nelle combinazioni canton+regionCode possibili.
  * L'ambiguita' e' calcolata contando le coppie (canton, regionCode) DISTINTE
@@ -74,4 +78,25 @@ export async function fetchPremiumsForRegion(canton, regionCode, ageClass, year,
     franchise: r.franchise,
     premiumChf: Number(r.premium_chf),
   }));
+}
+
+/**
+ * Organizza candidates (gia' fetchati, nessuna nuova query) in una griglia
+ * franchigia x tariff_code per UNA SOLA cassa (quella scelta dall'utente).
+ * Se piu' righe combaciano sulla stessa cella (piu' product_code sotto lo
+ * stesso tariff_code+franchigia, vedi LIMITE NOTO in recommend.ts), mostra
+ * il premio piu' basso tra quelli disponibili in quella cella.
+ */
+export function buildPremiumGrid(candidates, bagNumber) {
+  const franchises = [...new Set(candidates.map((c) => c.franchise))].sort((a, b) => a - b);
+  const sameInsurer = candidates.filter((c) => c.bagNumber === bagNumber);
+  const tariffCodes = TARIFF_CODE_ORDER.filter((code) => sameInsurer.some((c) => c.tariffCode === code));
+
+  function cell(franchise, tariffCode) {
+    const matches = sameInsurer.filter((c) => c.franchise === franchise && c.tariffCode === tariffCode);
+    if (!matches.length) return null;
+    return Math.min(...matches.map((c) => c.premiumChf));
+  }
+
+  return { franchises, tariffCodes, cell };
 }

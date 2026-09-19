@@ -2,17 +2,14 @@ import { useEffect, useState } from "react";
 import { recommend } from "../lib/recommend";
 import {
   PREMIUM_YEAR,
+  TARIFF_CODE_ORDER,
   resolveCapToRegions,
   fetchInsurers,
   fetchTariffsForInsurer,
   fetchPremiumsForRegion,
+  buildPremiumGrid,
 } from "../lib/premiumsApi";
 import { CONCEPTS } from "../content/concepts";
-
-// Ordine fisso dei modelli mostrati sopra il select tariffa: i 4 tariff_code
-// noti nei dati UFSP. Se un modello non e' disponibile per la cassa scelta,
-// la spiegazione resta visibile comunque (e' educativa, non un filtro).
-const TARIFF_ORDER = ["TAR-BASE", "TAR-HAM", "TAR-HMO", "TAR-DIV"];
 
 // Soglie eta' KVG standard, applicate all'anno dei premi in vigore.
 function deriveAgeClass(birthYear) {
@@ -20,6 +17,11 @@ function deriveAgeClass(birthYear) {
   if (age <= 18) return "AKL-KIN";
   if (age <= 25) return "AKL-JUG";
   return "AKL-ERW";
+}
+
+function franchiseExplanation(amount) {
+  return `Fino a ${amount} CHF di spese mediche in un anno le paghi tu; oltre, comincia a ` +
+    "contribuire la cassa (con una piccola parte a tuo carico fino al tetto).";
 }
 
 function VideoPlaceholder() {
@@ -75,6 +77,7 @@ export default function Compare() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
+  const [candidates, setCandidates] = useState([]);
 
   useEffect(() => {
     fetchInsurers()
@@ -129,8 +132,10 @@ export default function Compare() {
         candidates,
       );
       setResult(recommendation);
+      setCandidates(candidates);
     } catch (err) {
       setResult(null);
+      setCandidates([]);
       setError(
         err.message === "Combinazione attuale non trovata nei dati UFSP."
           ? "Non troviamo la tua combinazione attuale (cassa/tariffa/franchigia) nei dati per questa regione/anno — controlla i dati inseriti, oppure l'import per questa zona non e' ancora disponibile."
@@ -256,7 +261,7 @@ export default function Compare() {
           text={CONCEPTS["modelli-tariffari"].text}
         >
           <div style={{ display: "grid", gap: 10, margin: "4px 0 12px" }}>
-            {TARIFF_ORDER.map((code) => {
+            {TARIFF_CODE_ORDER.map((code) => {
               const opt = CONCEPTS["modelli-tariffari"].options[code];
               return (
                 <div
@@ -360,24 +365,127 @@ export default function Compare() {
         )}
       </form>
 
-      {result && (
-        <div
-          className={"card badge-" + (result.verdict === "stay" ? "stay" : "switch")}
-          style={{ marginTop: 24, borderWidth: 2 }}
-        >
-          <h2 style={{ marginTop: 0 }}>{result.headline}</h2>
-          <p>{result.explanation}</p>
-          <p className="mono" style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-            Quello che guadagniamo se segui questo consiglio: <b>{result.ourCommissionChf} CHF</b>
-          </p>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{CONCEPTS["lamal-vs-lca"].text}</p>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{CONCEPTS["lamal-vs-lca"].example}</p>
-          <VideoPlaceholder />
-          <ul style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-            {result.caveats.map((c, i) => <li key={i}>{c}</li>)}
-          </ul>
-        </div>
-      )}
+      {result && (() => {
+        const currentBagNum = Number(form.currentBagNumber);
+        const currentRow = candidates.find(
+          (c) => c.bagNumber === currentBagNum && c.franchise === form.currentFranchise && c.tariffCode === form.currentTariff,
+        );
+        const recommendedSameInsurer = result.best ? result.best.bagNumber === currentBagNum : true;
+        const recommendedFranchise = result.best ? result.best.franchise : form.currentFranchise;
+        const recommendedTariff = result.best ? result.best.tariffCode : form.currentTariff;
+        const recommendedPremium = result.best ? result.best.premiumChf : currentRow?.premiumChf;
+        const grid = buildPremiumGrid(candidates, currentBagNum);
+
+        return (
+          <>
+            <div
+              className={"card badge-" + (result.verdict === "stay" ? "stay" : "switch")}
+              style={{ marginTop: 24, borderWidth: 2 }}
+            >
+              <h2 style={{ marginTop: 0 }}>{result.headline}</h2>
+              <p style={{ fontWeight: 600 }}>
+                Le cure che ricevi sono le stesse, qualunque cassa scegli: cambia solo il prezzo.
+              </p>
+              <p>{result.explanation}</p>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, margin: "16px 0" }}>
+                <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-section)", padding: "10px 12px" }}>
+                  <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-secondary)" }}>Premio mensile attuale</p>
+                  <p style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+                    {currentRow ? `${currentRow.premiumChf.toFixed(2)} CHF` : "n/d"}
+                  </p>
+                </div>
+                <div style={{ border: "1px solid var(--primary-border)", background: "var(--primary-light)", borderRadius: "var(--radius-section)", padding: "10px 12px" }}>
+                  <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-secondary)" }}>Premio mensile consigliato</p>
+                  <p style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+                    {recommendedPremium != null ? `${recommendedPremium.toFixed(2)} CHF` : "n/d"}
+                  </p>
+                </div>
+              </div>
+
+              <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                {franchiseExplanation(form.currentFranchise)}
+              </p>
+              {result.best && result.best.franchise !== form.currentFranchise && (
+                <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                  Con la franchigia consigliata di {result.best.franchise} CHF: {franchiseExplanation(result.best.franchise)}
+                </p>
+              )}
+
+              <p className="mono" style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                Quello che guadagniamo se segui questo consiglio: <b>{result.ourCommissionChf} CHF</b>
+              </p>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{CONCEPTS["lamal-vs-lca"].text}</p>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{CONCEPTS["lamal-vs-lca"].example}</p>
+              <VideoPlaceholder />
+              <ul style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                {result.caveats.map((c, i) => <li key={i}>{c}</li>)}
+              </ul>
+            </div>
+
+            <div className="card" style={{ marginTop: 16 }}>
+              <h3 style={{ marginTop: 0, fontSize: 16 }}>
+                Confronto franchigie e modelli con la tua cassa attuale
+              </h3>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
+                      Franchigia
+                    </th>
+                    {grid.tariffCodes.map((code) => (
+                      <th key={code} style={{ textAlign: "right", padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
+                        {CONCEPTS["modelli-tariffari"].options[code]?.title ?? code}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {grid.franchises.map((f) => (
+                    <tr key={f}>
+                      <td style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>{f} CHF</td>
+                      {grid.tariffCodes.map((code) => {
+                        const premium = grid.cell(f, code);
+                        const isCurrent = f === form.currentFranchise && code === form.currentTariff;
+                        const isRecommended = recommendedSameInsurer && f === recommendedFranchise && code === recommendedTariff;
+                        return (
+                          <td
+                            key={code}
+                            style={{
+                              padding: "6px 8px",
+                              borderBottom: "1px solid var(--border)",
+                              textAlign: "right",
+                              outline: isCurrent
+                                ? "2px solid var(--text)"
+                                : isRecommended
+                                  ? "2px solid var(--primary-border)"
+                                  : "none",
+                              background: isRecommended ? "var(--primary-light)" : "transparent",
+                            }}
+                          >
+                            {premium == null ? "–" : `${premium.toFixed(2)} CHF`}
+                            {(isCurrent || isRecommended) && (
+                              <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>
+                                {isCurrent && isRecommended ? "attuale e consigliata" : isCurrent ? "attuale" : "consigliata"}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!recommendedSameInsurer && (
+                <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 12 }}>
+                  La proposta più conveniente è con <b>{result.best.insurerName}</b>, non mostrata in
+                  questa tabella che confronta solo la tua cassa attuale.
+                </p>
+              )}
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
