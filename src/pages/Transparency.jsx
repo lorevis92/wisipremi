@@ -13,9 +13,10 @@ export default function Transparency() {
       <h1 className="display">Come guadagniamo</h1>
       <div className="card" style={{ marginBottom: 16 }}>
         <p>
-          Riceviamo <b>70 CHF</b> dalla nuova cassa quando qualcuno cambia tramite noi — è il
-          tetto fissato dall'accordo di settore, uguale per tutti gli assicuratori. Non abbiamo
-          quindi motivo di spingere una cassa piuttosto che un'altra.
+          Il nostro modello prevede una provvigione fissa di <b>70 CHF</b> se il cambio avviene
+          tramite un servizio di intermediazione come questo — è il tetto fissato dall'accordo di
+          settore, uguale per tutti gli assicuratori. Non abbiamo quindi motivo di spingere una
+          cassa piuttosto che un'altra.
         </p>
         <p>
           Quando la risposta onesta è "resta dove sei", te lo diciamo — e in quel caso non

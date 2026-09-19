@@ -410,9 +410,11 @@ export default function Compare() {
                 </p>
               )}
 
-              <p className="mono" style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                Quello che guadagniamo se segui questo consiglio: <b>{result.ourCommissionChf} CHF</b>
-              </p>
+              {result.ourCommissionChf > 0 && (
+                <p className="mono" style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                  Quello che guadagniamo se segui questo consiglio: <b>{result.ourCommissionChf} CHF</b>
+                </p>
+              )}
               <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{CONCEPTS["lamal-vs-lca"].text}</p>
               <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{CONCEPTS["lamal-vs-lca"].example}</p>
               <VideoPlaceholder />

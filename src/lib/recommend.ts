@@ -136,9 +136,7 @@ export function recommend(input: UserInput, candidates: PremiumRow[]): Recommend
       annualSaving: Math.max(0, saving),
       best: null,
       ourCommissionChf: 0,
-      caveats: [
-        "Con questo consiglio non guadagniamo nulla: la provvigione la riceviamo solo se cambi.",
-      ],
+      caveats: [],
     };
   }
 
@@ -160,7 +158,6 @@ export function recommend(input: UserInput, candidates: PremiumRow[]): Recommend
       best: sameInsurerBest.row,
       ourCommissionChf: 0,
       caveats: [
-        "Anche qui non guadagniamo nulla: la provvigione scatta solo con un cambio di assicuratore.",
         "Una franchigia alta conviene solo se le tue spese mediche restano basse. Se la tua situazione di salute è incerta, valuta con prudenza.",
       ],
     };
@@ -181,7 +178,7 @@ export function recommend(input: UserInput, candidates: PremiumRow[]): Recommend
     "Le assicurazioni complementari non si trasferiscono automaticamente e possono richiedere un questionario sulla salute. Non disdire le complementari prima di avere l'accettazione scritta della nuova cassa.",
   );
   caveats.push(
-    `Se cambi tramite noi riceviamo ${COMMISSION_PER_SWITCH_CHF} CHF dalla nuova cassa. È lo stesso importo per tutte le casse, quindi non abbiamo motivo di spingerne una in particolare.`,
+    `Il nostro modello prevede una provvigione fissa di ${COMMISSION_PER_SWITCH_CHF} CHF se il cambio avviene tramite un servizio di intermediazione come questo — uguale per ogni cassa, per legge. Per questo non abbiamo motivo di spingerne una in particolare.`,
   );
 
   return {
