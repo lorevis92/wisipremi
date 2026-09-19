@@ -32,7 +32,8 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   region:       ["Region", "Région", "Regione"],
   bagNumber:    ["Versicherer", "Assureur", "Assicuratore", "Versicherer_Nr"],
   insurerName:  ["Versicherer_Name", "Nom", "Name", "Bezeichnung"],
-  tariff:       ["Tarif", "Tariftyp"],
+  tariffType:   ["Tariftyp"],
+  productCode:  ["Tarif"],
   tariffLabel:  ["Tarifbezeichnung", "Tarif_Bezeichnung", "Produkt"],
   ageClass:     ["Altersklasse", "Classe_age", "Altersgruppe"],
   ageSubgroup:  ["Altersuntergruppe", "Untergruppe"],
@@ -48,13 +49,47 @@ function buildMap(header: string[]): Record<string, number> {
     const idx = header.findIndex((h) => aliases.some((a) => norm(a) === norm(h)));
     if (idx >= 0) map[field] = idx;
   }
-  const required = ["canton", "region", "bagNumber", "tariff", "ageClass", "franchise", "premium"];
+  const required = ["canton", "region", "bagNumber", "tariffType", "ageClass", "franchise", "premium"];
   const missing = required.filter((f) => !(f in map));
   if (missing.length) {
     throw new Error(
       `Colonne non trovate: ${missing.join(", ")}\n` +
       `Header reale: ${header.join(" | ")}\n` +
       `Aggiorna COLUMN_ALIASES in questo file.`,
+    );
+  }
+  return map;
+}
+
+/* ------------------------------------------------------------------ */
+/* Mapping colonne per Einzugsgebiete.csv (comuni/CAP -> regione)      */
+/* Header bilingue concatenato (es. "BFS-Nr. No OFS"): match per       */
+/* prefisso, non per uguaglianza esatta come in buildMap.              */
+/* La colonna flag (* / +) non ha un header proprio nel file           */
+/* convertito da B_NPA: resta indice posizionale 0, fisso.             */
+/* ------------------------------------------------------------------ */
+const REGION_COLUMN_ALIASES: Record<string, string[]> = {
+  plz:              ["PLZ"],
+  canton:           ["Kanton"],
+  region:           ["Region"],
+  bfsNumber:        ["BFS-Nr.", "BFS-Nr"],
+  municipalityName: ["Gemeinde"],
+};
+
+function buildRegionMap(header: string[]): Record<string, number> {
+  const norm = (s: string) => s.trim().toLowerCase().replace(/[\s._-]/g, "");
+  const map: Record<string, number> = {};
+  for (const [field, aliases] of Object.entries(REGION_COLUMN_ALIASES)) {
+    const idx = header.findIndex((h) => aliases.some((a) => norm(h).startsWith(norm(a))));
+    if (idx >= 0) map[field] = idx;
+  }
+  const required = ["plz", "canton", "region", "bfsNumber", "municipalityName"];
+  const missing = required.filter((f) => !(f in map));
+  if (missing.length) {
+    throw new Error(
+      `Colonne regioni non trovate: ${missing.join(", ")}\n` +
+      `Header reale: ${header.join(" | ")}\n` +
+      `Aggiorna REGION_COLUMN_ALIASES in questo file.`,
     );
   }
   return map;
@@ -121,7 +156,7 @@ async function importPremiums(path: string, year: number) {
     if (!buffer.length) return;
     const { error } = await supabase
       .from("premiums")
-      .upsert(buffer, { onConflict: "year,canton,region_code,bag_number,tariff_code,age_class,age_subgroup,franchise,accident_included" });
+      .upsert(buffer, { onConflict: "year,canton,region_code,bag_number,tariff_code,product_code,age_class,age_subgroup,franchise,accident_included" });
     if (error) throw error;
     total += buffer.length;
     process.stdout.write(`\r  importate ${total} righe…`);
@@ -143,12 +178,13 @@ async function importPremiums(path: string, year: number) {
       canton: g("canton"),
       region_code: g("region"),
       bag_number: bagNumber,
-      tariff_code: g("tariff"),
+      tariff_code: g("tariffType"),
       tariff_label: g("tariffLabel"),
+      product_code: g("productCode") || "",
       age_class: g("ageClass"),
       age_subgroup: g("ageSubgroup") || "",
       franchise: parseInt(String(g("franchise")).replace(/\D/g, ""), 10) || 0,
-      accident_included: ACCIDENT_TRUE.has(String(g("accident")).toUpperCase()),
+      accident_included: String(g("accident")).toUpperCase().startsWith("MIT"),
       premium_chf: parseFloat(String(g("premium")).replace(",", ".")),
     });
 
@@ -170,23 +206,54 @@ async function importPremiums(path: string, year: number) {
 /* import — comuni / regioni di premio                                 */
 /* ------------------------------------------------------------------ */
 async function importRegions(path: string, year: number) {
-  let first = true;
-  const rows: any[] = [];
+  let map: Record<string, number> | null = null;
+  const municipalities = new Map<number, { bfs_number: number; name: string; canton: string; region_code: string; year: number }>();
+  const postalCodes = new Map<string, { plz: number; bfs_number: number; region_code: string; region_ambiguous: boolean }>();
+  let rowsRead = 0;
+
   for await (const row of readRows(path)) {
-    if (first) { first = false; console.log("Header regioni:", row.join(" | ")); continue; }
-    // Struttura tipica: BFS-Nr ; Gemeinde ; Kanton ; Region
-    const [bfs, name, canton, region] = row;
-    const bfsNumber = parseInt(bfs, 10);
-    if (!Number.isFinite(bfsNumber)) continue;
-    rows.push({ bfs_number: bfsNumber, name, canton, region_code: region, year });
+    if (!map) { map = buildRegionMap(row); continue; }
+
+    const g = (f: string) => (map![f] !== undefined ? row[map![f]] : null);
+    const bfsNumber = parseInt(g("bfsNumber"), 10);
+    const plz = parseInt(g("plz"), 10);
+    if (!Number.isFinite(bfsNumber) || !Number.isFinite(plz)) continue;
+
+    const canton = g("canton");
+    const region = g("region");
+    const name = g("municipalityName");
+    const flag = String(row[0] ?? "").trim(); // colonna flag: indice posizionale fisso, nessun header proprio
+
+    rowsRead++;
+
+    if (!municipalities.has(bfsNumber)) {
+      municipalities.set(bfsNumber, { bfs_number: bfsNumber, name, canton, region_code: region, year });
+    }
+
+    // Piu' Ortsbezeichnung (sotto-localita') possono condividere lo stesso
+    // plz+comune+regione: non ci serve quella granularita', l'ultima vince.
+    postalCodes.set(`${plz}|${bfsNumber}|${region}`, { plz, bfs_number: bfsNumber, region_code: region, region_ambiguous: flag !== "" });
   }
-  for (let i = 0; i < rows.length; i += BATCH) {
+
+  console.log(`${rowsRead} righe lette, ${postalCodes.size} chiavi uniche (${rowsRead - postalCodes.size} sotto-località duplicate scartate)`);
+
+  const municipalityRows = [...municipalities.values()];
+  for (let i = 0; i < municipalityRows.length; i += BATCH) {
     const { error } = await supabase
       .from("municipalities")
-      .upsert(rows.slice(i, i + BATCH), { onConflict: "bfs_number" });
+      .upsert(municipalityRows.slice(i, i + BATCH), { onConflict: "bfs_number" });
     if (error) throw error;
   }
-  console.log(`✔ ${rows.length} comuni importati`);
+  console.log(`✔ ${municipalityRows.length} comuni importati`);
+
+  const postalCodeRows = [...postalCodes.values()];
+  for (let i = 0; i < postalCodeRows.length; i += BATCH) {
+    const { error } = await supabase
+      .from("postal_codes")
+      .upsert(postalCodeRows.slice(i, i + BATCH), { onConflict: "plz,bfs_number,region_code" });
+    if (error) throw error;
+  }
+  console.log(`✔ ${postalCodeRows.length} CAP importati`);
 }
 
 /* ------------------------------------------------------------------ */

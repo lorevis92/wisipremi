@@ -55,17 +55,20 @@ create table if not exists premiums (
   bag_number        integer not null references insurers(bag_number),
   tariff_code       text    not null,           -- TAR-BASE, TAR-HAM, TAR-HMO, TAR-DIV...
   tariff_label      text,                       -- nome commerciale del modello
+  product_code      text    not null default '', -- codice prodotto specifico (Tarif) sotto lo stesso tariff_code
   age_class         text    not null,           -- AKL-KIN / AKL-JUG / AKL-ERW
-  age_subgroup      text,                       -- sottogruppo (bambini 0-18 ecc.)
+  age_subgroup      text    not null default '', -- sottogruppo (bambini 0-18 ecc.)
   franchise         integer not null,           -- 0,100..600 bambini | 300..2500 adulti
   accident_included boolean not null,           -- MIT = true, OHN = false
   premium_chf       numeric(8,2) not null,      -- premio mensile
   created_at        timestamptz not null default now()
 );
 
-create unique index if not exists uq_premium_natural_key
-  on premiums (year, canton, region_code, bag_number, tariff_code,
-               age_class, coalesce(age_subgroup,''), franchise, accident_included);
+drop index if exists uq_premium_natural_key;
+
+create unique index uq_premium_natural_key
+  on premiums (year, canton, region_code, bag_number, tariff_code, product_code,
+               age_class, age_subgroup, franchise, accident_included);
 
 -- Indice per la query principale del sito
 create index if not exists idx_premium_lookup

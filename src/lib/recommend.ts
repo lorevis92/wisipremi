@@ -96,6 +96,10 @@ export function recommend(input: UserInput, candidates: PremiumRow[]): Recommend
   const isChild = input.ageClass === "AKL-KIN";
   const costs = input.expectedMedicalCosts;
 
+  // LIMITE NOTO: candidates non porta product_code. Se un assicuratore ha piu'
+  // prodotti sotto lo stesso tariff_code+franchigia (es. CSS 01_016 vs 01_046,
+  // caso reale nei dati UFSP), .find() prende il primo che trova: puo' non
+  // essere il prodotto specifico dell'utente. Non risolto per ora.
   const current = candidates.find(
     (c) =>
       c.bagNumber === input.currentBagNumber &&
