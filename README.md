@@ -1,4 +1,4 @@
-# WisiPremi
+# WisiHealth
 
 Comparatore casse malati svizzere, onesto: se conviene restare dove sei, lo diciamo — anche
 quando per noi significa zero provvigione. Motore basato sul costo totale reale (premio +
@@ -67,7 +67,7 @@ Le migrazioni successive vanno sempre scritte non distruttive (`if not exists`).
 - [x] ETL con comando `inspect` per adattarsi ai CSV reali
 - [ ] `Compare.jsx` usa ancora MOCK_RESULT — va collegato a Supabase + recommend()
 - [ ] Import dati reali UFSP non ancora eseguito
-- [ ] Logo `logo-wisipremi.png` non ancora creato (placeholder testuale nel Navbar)
+- [ ] Logo `logo-wisihealth.png` non ancora creato (placeholder testuale nel Navbar)
 - [ ] Ponte CAP -> comune non incluso nel dataset UFSP: serve dataset separato (Posta/UST)
 - [ ] Nessuna registrazione FINMA: in questa fase il sito è solo informativo, nessuna
       raccomandazione di prodotto specifico finché non si passa alla fase 2 (vedi chat Claude)
@@ -78,7 +78,7 @@ Copia tutto il blocco qui sotto in Claude Code appena apri la cartella:
 
 ---
 
-Ho una cartella React+Vite già scaffoldata (WisiPremi, comparatore casse malati CH).
+Ho una cartella React+Vite già scaffoldata (WisiHealth, comparatore casse malati CH).
 Design system WiSiVERSE già applicato in `src/styles/tokens.css` — usa SEMPRE quelle
 variabili CSS esatte, non descrizioni generiche di stile.
 

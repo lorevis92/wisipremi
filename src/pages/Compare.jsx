@@ -7,6 +7,8 @@ import {
   fetchTariffsForInsurer,
   fetchPremiumsForRegion,
 } from "../lib/premiumsApi";
+import ConceptTooltip from "../components/ConceptTooltip";
+import { CONCEPTS } from "../content/concepts";
 
 // Solo etichetta di visualizzazione: il valore che viene salvato/confrontato
 // resta sempre il codice grezzo (tariff_code), mai inventato qui.
@@ -163,6 +165,17 @@ export default function Compare() {
         Confronto sul costo totale reale, non solo sul premio. Se conviene restare dove sei, te lo diciamo — anche se per noi vuol dire zero guadagno.
       </p>
 
+      <div className="card" style={{ background: "var(--surface)", marginBottom: 24 }}>
+        <p style={{ margin: 0, fontSize: 14 }}>
+          L'assicurazione di base (LAMal) copre esattamente le stesse prestazioni presso ogni
+          cassa malati in Svizzera — è la legge a deciderlo, non la compagnia. Nessuna cassa può
+          offrire di più, nessuna può offrire di meno, e nessuna può rifiutarti. Quello che varia
+          da cassa a cassa è <b>solo</b> il prezzo, il modello di accesso al medico (libera
+          scelta, medico di famiglia, HMO, Telmed) e — se la scegli — l'assicurazione
+          complementare, che è tutt'altra cosa.
+        </p>
+      </div>
+
       <form className="card" onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
         <label>
           NPA / Comune
@@ -213,6 +226,7 @@ export default function Compare() {
 
         <label>
           Tariffa attuale
+          <ConceptTooltip {...CONCEPTS["modelli-tariffari"]} />
           <select
             required
             disabled={!form.currentBagNumber}
@@ -230,6 +244,7 @@ export default function Compare() {
 
         <label>
           Franchigia attuale
+          <ConceptTooltip {...CONCEPTS.franchigia} />
           <select
             value={form.currentFranchise}
             onChange={(e) => setForm({ ...form, currentFranchise: Number(e.target.value) })}
@@ -247,10 +262,12 @@ export default function Compare() {
             onChange={(e) => setForm({ ...form, accidentIncluded: e.target.checked })}
           />
           Infortunio incluso nell'assicurazione di base
+          <ConceptTooltip {...CONCEPTS.infortunio} />
         </label>
 
         <label>
           Spese mediche annue attese (stima)
+          <ConceptTooltip {...CONCEPTS["partecipazione-costi"]} />
           <input
             type="number"
             value={form.expectedMedicalCosts}
@@ -287,6 +304,7 @@ export default function Compare() {
           <p>{result.explanation}</p>
           <p className="mono" style={{ fontSize: 13, color: "var(--text-secondary)" }}>
             Quello che guadagniamo se segui questo consiglio: <b>{result.ourCommissionChf} CHF</b>
+            <ConceptTooltip {...CONCEPTS["lamal-vs-lca"]} />
           </p>
           <ul style={{ fontSize: 13, color: "var(--text-secondary)" }}>
             {result.caveats.map((c, i) => <li key={i}>{c}</li>)}

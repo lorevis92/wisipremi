@@ -2,7 +2,6 @@ import { NavLink } from "react-router-dom";
 
 const TABS = [
   { to: "/", label: "Confronta" },
-  { to: "/video", label: "Video" },
   { to: "/trasparenza", label: "Trasparenza" },
 ];
 
@@ -12,8 +11,8 @@ export default function Navbar() {
       <div className="navbar-inner">
         <button className="hamburger" aria-label="menu">☰</button>
         <div className="brand">
-          {/* sostituire con /public/logo-wisipremi.png quando disponibile */}
-          <span className="brand-name">WisiPremi</span>
+          {/* sostituire con /public/logo-wisihealth.png quando disponibile */}
+          <span className="brand-name">WisiHealth</span>
         </div>
         <nav className="tabs">
           {TABS.map((t) => (
