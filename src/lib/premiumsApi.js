@@ -100,3 +100,19 @@ export function buildPremiumGrid(candidates, bagNumber) {
 
   return { franchises, tariffCodes, cell };
 }
+
+/**
+ * Le N casse piu' economiche (tra tutte quelle in candidates, gia' fetchati)
+ * per una combinazione franchigia+tariffa fissa - nessuna nuova query.
+ * Se una cassa ha piu' righe sulla stessa cella (vedi LIMITE NOTO), conta
+ * solo la piu' economica delle sue.
+ */
+export function topInsurersFor(candidates, franchise, tariffCode, limit = 5) {
+  const matches = candidates.filter((c) => c.franchise === franchise && c.tariffCode === tariffCode);
+  const cheapestByInsurer = new Map();
+  for (const c of matches) {
+    const prev = cheapestByInsurer.get(c.bagNumber);
+    if (!prev || c.premiumChf < prev.premiumChf) cheapestByInsurer.set(c.bagNumber, c);
+  }
+  return [...cheapestByInsurer.values()].sort((a, b) => a.premiumChf - b.premiumChf).slice(0, limit);
+}

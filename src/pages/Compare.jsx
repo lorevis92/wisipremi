@@ -8,6 +8,7 @@ import {
   fetchTariffsForInsurer,
   fetchPremiumsForRegion,
   buildPremiumGrid,
+  topInsurersFor,
 } from "../lib/premiumsApi";
 import { CONCEPTS } from "../content/concepts";
 
@@ -22,6 +23,11 @@ function deriveAgeClass(birthYear) {
 function franchiseExplanation(amount) {
   return `Fino a ${amount} CHF di spese mediche in un anno le paghi tu; oltre, comincia a ` +
     "contribuire la cassa (con una piccola parte a tuo carico fino al tetto).";
+}
+
+function formatPremium(monthly) {
+  if (monthly == null) return "n/d";
+  return `${monthly.toFixed(2)} CHF/mese (${(monthly * 12).toFixed(2)}/anno)`;
 }
 
 function VideoPlaceholder() {
@@ -78,6 +84,7 @@ export default function Compare() {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [candidates, setCandidates] = useState([]);
+  const [selectedGridInsurer, setSelectedGridInsurer] = useState(null);
 
   useEffect(() => {
     fetchInsurers()
@@ -133,6 +140,7 @@ export default function Compare() {
       );
       setResult(recommendation);
       setCandidates(candidates);
+      setSelectedGridInsurer(Number(form.currentBagNumber));
     } catch (err) {
       setResult(null);
       setCandidates([]);
@@ -374,7 +382,14 @@ export default function Compare() {
         const recommendedFranchise = result.best ? result.best.franchise : form.currentFranchise;
         const recommendedTariff = result.best ? result.best.tariffCode : form.currentTariff;
         const recommendedPremium = result.best ? result.best.premiumChf : currentRow?.premiumChf;
-        const grid = buildPremiumGrid(candidates, currentBagNum);
+
+        const gridInsurer = selectedGridInsurer ?? currentBagNum;
+        const isOwnInsurerView = gridInsurer === currentBagNum;
+        const grid = buildPremiumGrid(candidates, gridInsurer);
+        const gridInsurerOptions = [...new Map(candidates.map((c) => [c.bagNumber, c.insurerName])).entries()]
+          .map(([bagNumber, name]) => ({ bagNumber, name }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        const topInsurers = topInsurersFor(candidates, form.currentFranchise, form.currentTariff, 5);
 
         return (
           <>
@@ -390,15 +405,15 @@ export default function Compare() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, margin: "16px 0" }}>
                 <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-section)", padding: "10px 12px" }}>
-                  <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-secondary)" }}>Premio mensile attuale</p>
-                  <p style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-                    {currentRow ? `${currentRow.premiumChf.toFixed(2)} CHF` : "n/d"}
+                  <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-secondary)" }}>Premio attuale</p>
+                  <p style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+                    {formatPremium(currentRow?.premiumChf)}
                   </p>
                 </div>
                 <div style={{ border: "1px solid var(--primary-border)", background: "var(--primary-light)", borderRadius: "var(--radius-section)", padding: "10px 12px" }}>
-                  <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-secondary)" }}>Premio mensile consigliato</p>
-                  <p style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-                    {recommendedPremium != null ? `${recommendedPremium.toFixed(2)} CHF` : "n/d"}
+                  <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-secondary)" }}>Premio consigliato</p>
+                  <p style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+                    {formatPremium(recommendedPremium)}
                   </p>
                 </div>
               </div>
@@ -425,8 +440,21 @@ export default function Compare() {
 
             <div className="card" style={{ marginTop: 16 }}>
               <h3 style={{ marginTop: 0, fontSize: 16 }}>
-                Confronto franchigie e modelli con la tua cassa attuale
+                Confronto franchigie e modelli
               </h3>
+              <label style={{ display: "block", marginBottom: 12 }}>
+                Cassa da confrontare
+                <select
+                  value={gridInsurer}
+                  onChange={(e) => setSelectedGridInsurer(Number(e.target.value))}
+                >
+                  {gridInsurerOptions.map((i) => (
+                    <option key={i.bagNumber} value={i.bagNumber}>
+                      {i.name}{i.bagNumber === currentBagNum ? " (la tua cassa attuale)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr>
@@ -446,8 +474,9 @@ export default function Compare() {
                       <td style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>{f} CHF</td>
                       {grid.tariffCodes.map((code) => {
                         const premium = grid.cell(f, code);
-                        const isCurrent = f === form.currentFranchise && code === form.currentTariff;
-                        const isRecommended = recommendedSameInsurer && f === recommendedFranchise && code === recommendedTariff;
+                        const isCurrent = isOwnInsurerView && f === form.currentFranchise && code === form.currentTariff;
+                        const isRecommendedPrimary = isOwnInsurerView && recommendedSameInsurer && f === recommendedFranchise && code === recommendedTariff;
+                        const isRecommendedNeutral = !isOwnInsurerView && result.best && gridInsurer === result.best.bagNumber && f === result.best.franchise && code === result.best.tariffCode;
                         return (
                           <td
                             key={code}
@@ -457,16 +486,26 @@ export default function Compare() {
                               textAlign: "right",
                               outline: isCurrent
                                 ? "2px solid var(--text)"
-                                : isRecommended
+                                : isRecommendedPrimary
                                   ? "2px solid var(--primary-border)"
-                                  : "none",
-                              background: isRecommended ? "var(--primary-light)" : "transparent",
+                                  : isRecommendedNeutral
+                                    ? "2px solid var(--text-muted)"
+                                    : "none",
+                              background: isRecommendedPrimary
+                                ? "var(--primary-light)"
+                                : isRecommendedNeutral
+                                  ? "var(--surface-alt)"
+                                  : "transparent",
                             }}
                           >
-                            {premium == null ? "–" : `${premium.toFixed(2)} CHF`}
-                            {(isCurrent || isRecommended) && (
+                            {premium == null ? "–" : formatPremium(premium)}
+                            {(isCurrent || isRecommendedPrimary || isRecommendedNeutral) && (
                               <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>
-                                {isCurrent && isRecommended ? "attuale e consigliata" : isCurrent ? "attuale" : "consigliata"}
+                                {isCurrent && isRecommendedPrimary
+                                  ? "attuale e consigliata"
+                                  : isCurrent
+                                    ? "attuale"
+                                    : "consigliata"}
                               </div>
                             )}
                           </td>
@@ -476,12 +515,42 @@ export default function Compare() {
                   ))}
                 </tbody>
               </table>
-              {!recommendedSameInsurer && (
+              {isOwnInsurerView && !recommendedSameInsurer && (
                 <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 12 }}>
                   La proposta più conveniente è con <b>{result.best.insurerName}</b>, non mostrata in
                   questa tabella che confronta solo la tua cassa attuale.
                 </p>
               )}
+            </div>
+
+            <div className="card" style={{ marginTop: 16 }}>
+              <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--text-secondary)" }}>
+                {CONCEPTS["perche-prezzi-diversi"].text}
+              </p>
+              <h3 style={{ marginTop: 0, fontSize: 16 }}>
+                Chi costa meno per la tua combinazione ({form.currentFranchise} CHF, {CONCEPTS["modelli-tariffari"].options[form.currentTariff]?.title ?? form.currentTariff})
+              </h3>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>Cassa</th>
+                    <th style={{ textAlign: "right", padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>Premio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topInsurers.map((row) => (
+                    <tr key={row.bagNumber}>
+                      <td style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
+                        {row.insurerName}
+                        {row.bagNumber === currentBagNum ? " (attuale)" : ""}
+                      </td>
+                      <td style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)", textAlign: "right" }}>
+                        {formatPremium(row.premiumChf)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </>
         );

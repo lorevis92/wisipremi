@@ -110,4 +110,14 @@ export const CONCEPTS = {
     title: "Cosa copre la base (LAMal)",
     text: "Coperti: visite mediche, ricoveri in reparto comune, farmaci in elenco, maternità, cure psichiatriche prescritte, Spitex. Non coperti: cure dentarie di routine, occhiali, camera privata/semiprivata, gran parte della medicina alternativa. È uguale per ogni cassa: cambia solo il prezzo, non le prestazioni.",
   },
+  "perche-prezzi-diversi": {
+    title: "Perché il prezzo cambia se la copertura è identica?",
+    text:
+      "La legge impone a ogni cassa di coprire esattamente le stesse prestazioni per l'assicurazione " +
+      "di base — quindi la differenza di prezzo che vedi qui sotto non è una differenza nella qualità " +
+      "delle cure che ricevi. Dipende da come ogni assicuratore gestisce i propri costi interni " +
+      "(struttura, riserve, numero di assicurati). Limite onesto: questo confronto non misura invece " +
+      "cose come la velocità dei rimborsi o quanto è comodo il servizio clienti — su quello non " +
+      "abbiamo dati oggettivi da mostrarti.",
+  },
 };
