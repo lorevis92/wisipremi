@@ -7,18 +7,12 @@ import {
   fetchTariffsForInsurer,
   fetchPremiumsForRegion,
 } from "../lib/premiumsApi";
-import ConceptTooltip from "../components/ConceptTooltip";
 import { CONCEPTS } from "../content/concepts";
 
-// Solo etichetta di visualizzazione: il valore che viene salvato/confrontato
-// resta sempre il codice grezzo (tariff_code), mai inventato qui.
-const TARIFF_LABELS = {
-  "TAR-BASE": "Modello standard",
-  "TAR-HAM": "Medico di famiglia",
-  "TAR-HMO": "HMO",
-  "TAR-DIV": "Altro modello (telemedicina, ecc.)",
-};
-const tariffLabel = (code) => TARIFF_LABELS[code] ?? code;
+// Ordine fisso dei modelli mostrati sopra il select tariffa: i 4 tariff_code
+// noti nei dati UFSP. Se un modello non e' disponibile per la cassa scelta,
+// la spiegazione resta visibile comunque (e' educativa, non un filtro).
+const TARIFF_ORDER = ["TAR-BASE", "TAR-HAM", "TAR-HMO", "TAR-DIV"];
 
 // Soglie eta' KVG standard, applicate all'anno dei premi in vigore.
 function deriveAgeClass(birthYear) {
@@ -26,6 +20,39 @@ function deriveAgeClass(birthYear) {
   if (age <= 18) return "AKL-KIN";
   if (age <= 25) return "AKL-JUG";
   return "AKL-ERW";
+}
+
+function VideoPlaceholder() {
+  return (
+    <div
+      className="mono"
+      style={{
+        fontSize: 12,
+        color: "var(--text-muted)",
+        background: "var(--surface)",
+        borderRadius: "var(--radius-section)",
+        padding: "8px 10px",
+        textAlign: "center",
+        margin: "8px 0 12px",
+      }}
+    >
+      🎥 Video in arrivo
+    </div>
+  );
+}
+
+function FieldExplainer({ question, text, example, children }) {
+  return (
+    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+      <p style={{ fontWeight: 700, margin: "0 0 8px", fontSize: 15 }}>{question}</p>
+      <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>{text}</p>
+      {example && (
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>{example}</p>
+      )}
+      <VideoPlaceholder />
+      {children}
+    </div>
+  );
 }
 
 export default function Compare() {
@@ -224,56 +251,94 @@ export default function Compare() {
           </select>
         </label>
 
-        <label>
-          Tariffa attuale
-          <ConceptTooltip {...CONCEPTS["modelli-tariffari"]} />
-          <select
-            required
-            disabled={!form.currentBagNumber}
-            value={form.currentTariff}
-            onChange={(e) => setForm({ ...form, currentTariff: e.target.value })}
-          >
-            <option value="" disabled>
-              {form.currentBagNumber ? "Seleziona la tariffa" : "Scegli prima la cassa"}
-            </option>
-            {tariffOptions.map((t) => (
-              <option key={t} value={t}>{tariffLabel(t)}</option>
-            ))}
-          </select>
-        </label>
+        <FieldExplainer
+          question="Come vuoi accedere alle cure quando ti servono?"
+          text={CONCEPTS["modelli-tariffari"].text}
+        >
+          <div style={{ display: "grid", gap: 10, margin: "4px 0 12px" }}>
+            {TARIFF_ORDER.map((code) => {
+              const opt = CONCEPTS["modelli-tariffari"].options[code];
+              return (
+                <div
+                  key={code}
+                  style={{
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-section)",
+                    padding: "10px 12px",
+                  }}
+                >
+                  <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 13 }}>{opt.title}</p>
+                  <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-secondary)" }}>{opt.text}</p>
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--text-secondary)" }}>{opt.example}</p>
+                </div>
+              );
+            })}
+          </div>
+          <label>
+            Tariffa attuale
+            <select
+              required
+              disabled={!form.currentBagNumber}
+              value={form.currentTariff}
+              onChange={(e) => setForm({ ...form, currentTariff: e.target.value })}
+            >
+              <option value="" disabled>
+                {form.currentBagNumber ? "Seleziona la tariffa" : "Scegli prima la cassa"}
+              </option>
+              {tariffOptions.map((t) => (
+                <option key={t} value={t}>{CONCEPTS["modelli-tariffari"].options[t]?.title ?? t}</option>
+              ))}
+            </select>
+          </label>
+        </FieldExplainer>
 
-        <label>
-          Franchigia attuale
-          <ConceptTooltip {...CONCEPTS.franchigia} />
-          <select
-            value={form.currentFranchise}
-            onChange={(e) => setForm({ ...form, currentFranchise: Number(e.target.value) })}
-          >
-            {[300, 500, 1000, 1500, 2000, 2500].map((f) => (
-              <option key={f} value={f}>{f} CHF</option>
-            ))}
-          </select>
-        </label>
+        <FieldExplainer
+          question="Quanto sei disposto a pagare tu prima che intervenga la cassa?"
+          text={CONCEPTS.franchigia.text}
+          example={CONCEPTS.franchigia.example}
+        >
+          <label>
+            Franchigia attuale
+            <select
+              value={form.currentFranchise}
+              onChange={(e) => setForm({ ...form, currentFranchise: Number(e.target.value) })}
+            >
+              {[300, 500, 1000, 1500, 2000, 2500].map((f) => (
+                <option key={f} value={f}>{f} CHF</option>
+              ))}
+            </select>
+          </label>
+        </FieldExplainer>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={form.accidentIncluded}
-            onChange={(e) => setForm({ ...form, accidentIncluded: e.target.checked })}
-          />
-          Infortunio incluso nell'assicurazione di base
-          <ConceptTooltip {...CONCEPTS.infortunio} />
-        </label>
+        <FieldExplainer
+          question="Sei già assicurato contro gli infortuni tramite il tuo lavoro?"
+          text={CONCEPTS.infortunio.text}
+          example={CONCEPTS.infortunio.example}
+        >
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={form.accidentIncluded}
+              onChange={(e) => setForm({ ...form, accidentIncluded: e.target.checked })}
+            />
+            Infortunio incluso nell'assicurazione di base
+          </label>
+        </FieldExplainer>
 
-        <label>
-          Spese mediche annue attese (stima)
-          <ConceptTooltip {...CONCEPTS["partecipazione-costi"]} />
-          <input
-            type="number"
-            value={form.expectedMedicalCosts}
-            onChange={(e) => setForm({ ...form, expectedMedicalCosts: Number(e.target.value) })}
-          />
-        </label>
+        <FieldExplainer
+          question="Quanto pensi di spendere quest'anno in visite e cure?"
+          text={CONCEPTS["partecipazione-costi"].text}
+          example={CONCEPTS["partecipazione-costi"].example}
+        >
+          <label>
+            Spese mediche annue attese (stima)
+            <input
+              type="number"
+              value={form.expectedMedicalCosts}
+              onChange={(e) => setForm({ ...form, expectedMedicalCosts: Number(e.target.value) })}
+            />
+          </label>
+        </FieldExplainer>
 
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input
@@ -304,8 +369,10 @@ export default function Compare() {
           <p>{result.explanation}</p>
           <p className="mono" style={{ fontSize: 13, color: "var(--text-secondary)" }}>
             Quello che guadagniamo se segui questo consiglio: <b>{result.ourCommissionChf} CHF</b>
-            <ConceptTooltip {...CONCEPTS["lamal-vs-lca"]} />
           </p>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{CONCEPTS["lamal-vs-lca"].text}</p>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{CONCEPTS["lamal-vs-lca"].example}</p>
+          <VideoPlaceholder />
           <ul style={{ fontSize: 13, color: "var(--text-secondary)" }}>
             {result.caveats.map((c, i) => <li key={i}>{c}</li>)}
           </ul>
