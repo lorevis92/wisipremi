@@ -11,6 +11,8 @@ import {
   topInsurersFor,
 } from "../lib/premiumsApi";
 import { CONCEPTS } from "../content/concepts";
+import VideoPlaceholder from "../components/VideoPlaceholder";
+import { Link } from "react-router-dom";
 
 // Soglie eta' KVG standard, applicate all'anno dei premi in vigore.
 function deriveAgeClass(birthYear) {
@@ -28,25 +30,6 @@ function franchiseExplanation(amount) {
 function formatPremium(monthly) {
   if (monthly == null) return "n/d";
   return `${monthly.toFixed(2)} CHF/mese (${(monthly * 12).toFixed(2)}/anno)`;
-}
-
-function VideoPlaceholder() {
-  return (
-    <div
-      className="mono"
-      style={{
-        fontSize: 12,
-        color: "var(--text-muted)",
-        background: "var(--surface)",
-        borderRadius: "var(--radius-section)",
-        padding: "8px 10px",
-        textAlign: "center",
-        margin: "8px 0 12px",
-      }}
-    >
-      🎥 Video in arrivo
-    </div>
-  );
 }
 
 function FieldExplainer({ question, text, example, children }) {
@@ -436,6 +419,9 @@ export default function Compare() {
               <ul style={{ fontSize: 13, color: "var(--text-secondary)" }}>
                 {result.caveats.map((c, i) => <li key={i}>{c}</li>)}
               </ul>
+              <p style={{ fontSize: 13, marginBottom: 0 }}>
+                <Link to="/capisci">Vuoi capire tutto il sistema, non solo questo calcolo? → Leggi la guida completa</Link>
+              </p>
             </div>
 
             <div className="card" style={{ marginTop: 16 }}>
