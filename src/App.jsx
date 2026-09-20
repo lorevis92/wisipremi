@@ -3,7 +3,6 @@ import Navbar from "./components/Navbar.jsx";
 import Footer from "./components/Footer.jsx";
 import Compare from "./pages/Compare.jsx";
 import Guide from "./pages/Guide.jsx";
-import Transparency from "./pages/Transparency.jsx";
 
 export default function App() {
   return (
@@ -13,7 +12,6 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Compare />} />
           <Route path="/capisci" element={<Guide />} />
-          <Route path="/trasparenza" element={<Transparency />} />
         </Routes>
       </main>
       <Footer />

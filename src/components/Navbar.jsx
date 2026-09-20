@@ -3,7 +3,6 @@ import { NavLink } from "react-router-dom";
 const TABS = [
   { to: "/", label: "Confronta" },
   { to: "/capisci", label: "Capisci" },
-  { to: "/trasparenza", label: "Trasparenza" },
 ];
 
 export default function Navbar() {
