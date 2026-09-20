@@ -4,3 +4,4 @@ dist
 data/*.csv
 data/*.zip
 data/*.xlsx
+.claude/settings.local.json

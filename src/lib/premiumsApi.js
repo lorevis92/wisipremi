@@ -7,6 +7,26 @@ export const PREMIUM_YEAR = 2026;
 // descrittive dei modelli sia per l'ordine delle colonne della griglia.
 export const TARIFF_CODE_ORDER = ["TAR-BASE", "TAR-HAM", "TAR-HMO", "TAR-DIV"];
 
+const PAGE_SIZE = 1000;
+
+/**
+ * Supabase/PostgREST limita ogni risposta a 1000 righe per query, senza
+ * avvisare: superata quella soglia i dati oltre spariscono in silenzio
+ * (bug reale scoperto su fetchAllLocalities, segnalato dall'utente).
+ * Ogni query che puo' avvicinarsi o superare 1000 righe passa da qui invece
+ * di un singolo .select() diretto.
+ */
+async function fetchAllPages(buildQuery) {
+  const rows = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await buildQuery().range(offset, offset + PAGE_SIZE - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 /**
  * Risolve un CAP nelle combinazioni canton+regionCode possibili.
  * L'ambiguita' e' calcolata contando le coppie (canton, regionCode) DISTINTE
@@ -61,18 +81,17 @@ export async function fetchInsurers(year) {
 }
 
 /**
- * Elenco CAP + comune per il menu a tendina del campo NPA/Comune - una sola
- * query, filtrata poi lato client mentre l'utente digita (4769 righe totali,
- * nessun bisogno di richieste ripetute a ogni tasto premuto).
+ * Elenco CAP + comune per il menu a tendina del campo NPA/Comune - filtrato
+ * poi lato client mentre l'utente digita (nessuna richiesta ripetuta a ogni
+ * tasto premuto). Paginato: 4769 righe in postal_codes, ben oltre 1000.
  */
 export async function fetchAllLocalities() {
-  const { data, error } = await supabase
-    .from("postal_codes")
-    .select("plz, municipalities(name, canton)");
-  if (error) throw error;
+  const rows = await fetchAllPages(() =>
+    supabase.from("postal_codes").select("plz, municipalities(name, canton)"),
+  );
 
   const seen = new Map();
-  for (const r of data ?? []) {
+  for (const r of rows) {
     const cityName = r.municipalities?.name;
     if (!cityName) continue;
     const key = `${r.plz}|${cityName}`;
@@ -81,35 +100,38 @@ export async function fetchAllLocalities() {
   return [...seen.values()].sort((a, b) => a.plz - b.plz);
 }
 
-/** Valori distinti di tariff_code offerti da un assicuratore per un anno. */
+/**
+ * Valori distinti di tariff_code offerti da un assicuratore per un anno.
+ * Paginato: un assicuratore grande (es. CSS) supera facilmente 1000 righe
+ * su tutte le combinazioni regione/eta'/franchigia/infortunio.
+ */
 export async function fetchTariffsForInsurer(bagNumber, year) {
-  const { data, error } = await supabase
-    .from("premiums")
-    .select("tariff_code")
-    .eq("bag_number", bagNumber)
-    .eq("year", year);
-  if (error) throw error;
-  return [...new Set((data ?? []).map((r) => r.tariff_code))];
+  const rows = await fetchAllPages(() =>
+    supabase.from("premiums").select("tariff_code").eq("bag_number", bagNumber).eq("year", year),
+  );
+  return [...new Set(rows.map((r) => r.tariff_code))];
 }
 
 /**
  * Premi disponibili per una regione/eta'/anno, filtrati anche per
  * accident_included: senza questo filtro, candidates mescolerebbe righe
  * MIT-UNF/OHN-UNF che non sono confrontabili (PremiumRow non porta questa
- * dimensione, va risolta qui in query).
+ * dimensione, va risolta qui in query). Paginato per le regioni con piu'
+ * assicuratori/tariffe/franchigie, che possono avvicinarsi a 1000 righe.
  */
 export async function fetchPremiumsForRegion(canton, regionCode, ageClass, year, accidentIncluded) {
-  const { data, error } = await supabase
-    .from("premiums")
-    .select("bag_number, tariff_code, tariff_label, franchise, premium_chf, insurers(name)")
-    .eq("canton", canton)
-    .eq("region_code", regionCode)
-    .eq("age_class", ageClass)
-    .eq("year", year)
-    .eq("accident_included", accidentIncluded);
-  if (error) throw error;
+  const rows = await fetchAllPages(() =>
+    supabase
+      .from("premiums")
+      .select("bag_number, tariff_code, tariff_label, franchise, premium_chf, insurers(name)")
+      .eq("canton", canton)
+      .eq("region_code", regionCode)
+      .eq("age_class", ageClass)
+      .eq("year", year)
+      .eq("accident_included", accidentIncluded),
+  );
 
-  return (data ?? []).map((r) => ({
+  return rows.map((r) => ({
     bagNumber: r.bag_number,
     insurerName: r.insurers?.name ?? "",
     tariffCode: r.tariff_code,
