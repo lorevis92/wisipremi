@@ -33,13 +33,52 @@ export async function resolveCapToRegions(plz) {
   return options.map((o) => ({ ...o, ambiguous }));
 }
 
-export async function fetchInsurers() {
+/**
+ * Solo le casse che hanno davvero premi importati per l'anno dato: alcune
+ * righe di insurers non hanno nessun premio (assicuratori di categoria,
+ * non individuali - es. "Gewerbliche", "Metallbaufirmen") e farle scegliere
+ * porterebbe sempre a un calcolo impossibile ("combinazione non trovata").
+ */
+export async function fetchInsurers(year) {
   const { data, error } = await supabase
     .from("insurers")
     .select("bag_number, name")
     .order("name", { ascending: true });
   if (error) throw error;
-  return (data ?? []).map((r) => ({ bagNumber: r.bag_number, name: r.name }));
+
+  const checks = await Promise.all(
+    (data ?? []).map(async (r) => {
+      const { count, error: countError } = await supabase
+        .from("premiums")
+        .select("*", { count: "exact", head: true })
+        .eq("bag_number", r.bag_number)
+        .eq("year", year);
+      if (countError) throw countError;
+      return count > 0 ? { bagNumber: r.bag_number, name: r.name } : null;
+    }),
+  );
+  return checks.filter(Boolean);
+}
+
+/**
+ * Elenco CAP + comune per il menu a tendina del campo NPA/Comune - una sola
+ * query, filtrata poi lato client mentre l'utente digita (4769 righe totali,
+ * nessun bisogno di richieste ripetute a ogni tasto premuto).
+ */
+export async function fetchAllLocalities() {
+  const { data, error } = await supabase
+    .from("postal_codes")
+    .select("plz, municipalities(name, canton)");
+  if (error) throw error;
+
+  const seen = new Map();
+  for (const r of data ?? []) {
+    const cityName = r.municipalities?.name;
+    if (!cityName) continue;
+    const key = `${r.plz}|${cityName}`;
+    if (!seen.has(key)) seen.set(key, { plz: r.plz, cityName, canton: r.municipalities?.canton ?? "" });
+  }
+  return [...seen.values()].sort((a, b) => a.plz - b.plz);
 }
 
 /** Valori distinti di tariff_code offerti da un assicuratore per un anno. */

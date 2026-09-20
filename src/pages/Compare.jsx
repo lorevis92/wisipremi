@@ -7,6 +7,7 @@ import {
   fetchInsurers,
   fetchTariffsForInsurer,
   fetchPremiumsForRegion,
+  fetchAllLocalities,
   buildPremiumGrid,
   topInsurersFor,
 } from "../lib/premiumsApi";
@@ -66,6 +67,7 @@ export default function Compare() {
   });
 
   const [insurers, setInsurers] = useState([]);
+  const [localities, setLocalities] = useState([]);
   const [tariffOptions, setTariffOptions] = useState([]);
   const [regionOptions, setRegionOptions] = useState(null);
   const [resolvedRegion, setResolvedRegion] = useState(null);
@@ -77,10 +79,15 @@ export default function Compare() {
   const [selectedGridInsurer, setSelectedGridInsurer] = useState(null);
 
   useEffect(() => {
-    fetchInsurers()
+    fetchInsurers(PREMIUM_YEAR)
       .then(setInsurers)
       .catch(() => setError("Impossibile caricare l'elenco delle casse malati."));
+    fetchAllLocalities()
+      .then(setLocalities)
+      .catch(() => {}); // il campo CAP resta comunque utilizzabile come testo libero
   }, []);
+
+  const birthYears = Array.from({ length: 100 }, (_, i) => PREMIUM_YEAR - i);
 
   useEffect(() => {
     if (!form.currentBagNumber) {
@@ -220,10 +227,16 @@ export default function Compare() {
             NPA / Comune
             <input
               required
+              list="localities-list"
               value={form.plz}
-              onChange={(e) => handlePlzChange(e.target.value)}
-              placeholder="3904"
+              onChange={(e) => handlePlzChange(e.target.value.split(" – ")[0].trim())}
+              placeholder="3904 oppure il nome del comune"
             />
+            <datalist id="localities-list">
+              {localities.map((l) => (
+                <option key={`${l.plz}-${l.cityName}`} value={`${l.plz} – ${l.cityName} (${l.canton})`} />
+              ))}
+            </datalist>
           </label>
 
           {regionOptions && (
@@ -240,13 +253,16 @@ export default function Compare() {
 
           <label>
             Anno di nascita
-            <input
+            <select
               required
-              type="number"
               value={form.birthYear}
               onChange={(e) => setForm({ ...form, birthYear: e.target.value })}
-              placeholder="1992"
-            />
+            >
+              <option value="" disabled>Seleziona l'anno</option>
+              {birthYears.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
           </label>
 
           <label>
