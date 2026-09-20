@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import VideoPlaceholder from "../components/VideoPlaceholder";
 
 // Indice cliccabile in cima alla pagina - stessi id delle <section> sotto,
@@ -17,13 +17,40 @@ const TOC = [
   { id: "situazioni-particolari", label: "10. Situazioni particolari" },
 ];
 
-function Section({ id, title, video, children }) {
+// Pannello accordion: usa .section-label/.toggle gia' definiti in tokens.css
+// (bordo superiore, spaziatura, colore) invece di un pattern nuovo - solo il
+// minimo di reset necessario perche' l'header e' un <button> vero.
+function Panel({ id, title, video, open, onToggle, children }) {
   return (
-    <section id={id} style={{ borderTop: "1px solid var(--border)", paddingTop: 24, marginTop: 24 }}>
-      <h2 style={{ fontSize: 20, marginBottom: 12 }}>{title}</h2>
-      {children}
-      {video && <VideoPlaceholder />}
-    </section>
+    <div id={id} className="card" style={{ padding: 0, overflow: "hidden", marginTop: 16 }}>
+      <button
+        onClick={onToggle}
+        aria-expanded={open}
+        className="section-label"
+        style={{
+          width: "100%",
+          margin: 0,
+          border: "none",
+          background: "none",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+          cursor: "pointer",
+          textAlign: "left",
+          padding: "16px 20px",
+        }}
+      >
+        <span>{title}</span>
+        <span className="toggle" style={{ fontSize: 14 }}>{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div style={{ padding: "0 20px 20px" }}>
+          {children}
+          {video && <VideoPlaceholder />}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -32,12 +59,33 @@ const li = { fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, marg
 const note = { fontSize: 13, color: "var(--text-muted)", fontStyle: "italic", marginBottom: 12 };
 
 export default function Guide() {
-  // Navigazione client-side (React Router) non fa lo scroll automatico
-  // all'hash come farebbe un caricamento pagina pieno: lo facciamo a mano.
+  const [openIds, setOpenIds] = useState(() => new Set());
+
+  function toggle(id) {
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Un link dell'indice (o un link esterno con hash) deve espandere la
+  // sezione ed andarci a scroll - React Router non lo fa in automatico per
+  // navigazioni client-side, quindi lo gestiamo a mano sia al mount sia su
+  // ogni cambio di hash (click su un altro link mentre si e' gia' sulla pagina).
   useEffect(() => {
-    if (!window.location.hash) return;
-    const el = document.getElementById(window.location.hash.slice(1));
-    if (el) el.scrollIntoView({ behavior: "smooth" });
+    function handleHash() {
+      const id = window.location.hash.slice(1);
+      if (!id || !TOC.some((t) => t.id === id)) return;
+      setOpenIds((prev) => new Set(prev).add(id));
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
   }, []);
 
   return (
@@ -55,13 +103,13 @@ export default function Guide() {
         <ul style={{ margin: 0, paddingLeft: 20, columns: 2, fontSize: 13 }}>
           {TOC.map((t) => (
             <li key={t.id} style={{ marginBottom: 6 }}>
-              <a href={`#${t.id}`}>{t.label}</a>
+              <a href={`#${t.id}`} style={{ fontWeight: 600 }}>{t.label}</a>
             </li>
           ))}
         </ul>
       </nav>
 
-      <Section id="il-fatto-che-spiega-tutto" title="0. Il fatto che spiega tutto il resto" video>
+      <Panel id="il-fatto-che-spiega-tutto" title="0. Il fatto che spiega tutto il resto" video open={openIds.has("il-fatto-che-spiega-tutto")} onToggle={() => toggle("il-fatto-che-spiega-tutto")}>
         <p style={p}>
           L'assicurazione di base (LAMal) copre esattamente le stesse prestazioni presso ogni
           cassa malati in Svizzera — è la legge a deciderlo, non la compagnia. Nessuna cassa può
@@ -70,9 +118,9 @@ export default function Guide() {
           scelta, medico di famiglia, HMO, Telmed) e — se la scegli — l'assicurazione
           complementare, che è tutt'altra cosa (vedi <a href="#complementari">sezione 7</a>).
         </p>
-      </Section>
+      </Panel>
 
-      <Section id="obbligo-assicurativo" title="1. Obbligo assicurativo — chi deve assicurarsi e quando">
+      <Panel id="obbligo-assicurativo" title="1. Obbligo assicurativo — chi deve assicurarsi e quando" open={openIds.has("obbligo-assicurativo")} onToggle={() => toggle("obbligo-assicurativo")}>
         <ul style={{ paddingLeft: 20 }}>
           <li style={li}>
             Chiunque risieda o lavori in Svizzera deve stipulare l'assicurazione di base entro
@@ -89,15 +137,15 @@ export default function Guide() {
             competente.
           </li>
         </ul>
-      </Section>
+      </Panel>
 
-      <Section id="lamal-vs-lca" title="2. LAMal vs LCA — la distinzione che struttura tutto il resto" video>
+      <Panel id="lamal-vs-lca" title="2. LAMal vs LCA — la distinzione che struttura tutto il resto" video open={openIds.has("lamal-vs-lca")} onToggle={() => toggle("lamal-vs-lca")}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 8 }}>
           <thead>
             <tr>
-              <th style={{ textAlign: "left", padding: "6px 8px", borderBottom: "1px solid var(--border)" }} />
-              <th style={{ textAlign: "left", padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>LAMal (base)</th>
-              <th style={{ textAlign: "left", padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>LCA (complementare)</th>
+              <th style={{ textAlign: "left", padding: "6px 8px", borderBottom: "2px solid var(--border)", background: "var(--surface)" }} />
+              <th style={{ textAlign: "left", padding: "6px 8px", borderBottom: "2px solid var(--border)", background: "var(--surface)" }}>LAMal (base)</th>
+              <th style={{ textAlign: "left", padding: "6px 8px", borderBottom: "2px solid var(--border)", background: "var(--surface)" }}>LCA (complementare)</th>
             </tr>
           </thead>
           <tbody>
@@ -118,9 +166,9 @@ export default function Guide() {
             ))}
           </tbody>
         </table>
-      </Section>
+      </Panel>
 
-      <Section id="cosa-copre-base" title="3. Cosa copre davvero la base (LAMal)" video>
+      <Panel id="cosa-copre-base" title="3. Cosa copre davvero la base (LAMal)" video open={openIds.has("cosa-copre-base")} onToggle={() => toggle("cosa-copre-base")}>
         <p style={p}>
           <b>Coperto:</b> visite dal medico (generico e specialista), ricoveri in reparto comune
           (nell'ospedale della lista del tuo cantone), farmaci nell'elenco delle specialità,
@@ -142,9 +190,9 @@ export default function Guide() {
           disponibile nel proprio cantone), gran parte della medicina alternativa (alcune terapie
           complementari sono coperte solo se erogate da un medico riconosciuto).
         </p>
-      </Section>
+      </Panel>
 
-      <Section id="franchigia" title="4. Franchigia e partecipazione ai costi — già nel motore di calcolo" video>
+      <Panel id="franchigia" title="4. Franchigia e partecipazione ai costi — già nel motore di calcolo" video open={openIds.has("franchigia")} onToggle={() => toggle("franchigia")}>
         <p style={note}>
           (Contenuto già implementato nel motore di calcolo — qui trovi solo la spiegazione
           discorsiva collegata al form di confronto.)
@@ -164,9 +212,9 @@ export default function Guide() {
             solo se ti aspetti spese mediche basse nell'anno.
           </li>
         </ul>
-      </Section>
+      </Panel>
 
-      <Section id="modelli-tariffari" title="5. I modelli assicurativi — cosa cambia scegliendo un percorso diverso" video>
+      <Panel id="modelli-tariffari" title="5. I modelli assicurativi — cosa cambia scegliendo un percorso diverso" video open={openIds.has("modelli-tariffari")} onToggle={() => toggle("modelli-tariffari")}>
         <p style={p}>
           Tutti danno accesso alla stessa lista di prestazioni (<a href="#cosa-copre-base">sezione 3</a>).
           Cambia solo <i>come</i> ci arrivi:
@@ -193,9 +241,9 @@ export default function Guide() {
           per arrivare alle cure. Non è mai una riduzione delle prestazioni — quelle restano
           identiche.
         </p>
-      </Section>
+      </Panel>
 
-      <Section id="infortunio" title="6. L'infortunio — un risparmio spesso dimenticato" video>
+      <Panel id="infortunio" title="6. L'infortunio — un risparmio spesso dimenticato" video open={openIds.has("infortunio")} onToggle={() => toggle("infortunio")}>
         <p style={note}>(Collegato diretto al checkbox "infortunio incluso" nel form di confronto.)</p>
         <p style={p}>
           Se lavori almeno 8 ore a settimana per lo stesso datore di lavoro, sei già assicurato
@@ -211,9 +259,9 @@ export default function Guide() {
           l'infortunio in cassa malati (o stipulare un'assicurazione mediante convenzione per il
           periodo di transizione, valida fino a 6 mesi dopo la fine del rapporto di lavoro).
         </p>
-      </Section>
+      </Panel>
 
-      <Section id="complementari" title="7. Le complementari (LCA) — il territorio dove serve più cautela" video>
+      <Panel id="complementari" title="7. Le complementari (LCA) — il territorio dove serve più cautela" video open={openIds.has("complementari")} onToggle={() => toggle("complementari")}>
         <p style={note}>Questa sezione resta educativa, non di vendita, per ora.</p>
         <ul style={{ paddingLeft: 20 }}>
           <li style={li}>
@@ -240,9 +288,9 @@ export default function Guide() {
             LAMal — è il motivo per cui, per ora, non le vendiamo, solo le spieghiamo.
           </li>
         </ul>
-      </Section>
+      </Panel>
 
-      <Section id="riduzione-premi" title="8. Riduzione dei premi (RIP/RIPAM) — il sussidio che molti non richiedono" video>
+      <Panel id="riduzione-premi" title="8. Riduzione dei premi (RIP/RIPAM) — il sussidio che molti non richiedono" video open={openIds.has("riduzione-premi")} onToggle={() => toggle("riduzione-premi")}>
         <p style={p}>
           Chi ha un reddito modesto ha diritto a una riduzione dei premi, finanziata insieme da
           Confederazione e Cantone. Le condizioni esatte (soglie di reddito, importo, scadenza
@@ -250,9 +298,9 @@ export default function Guide() {
           beneficia circa un residente su tre. Va richiesta attivamente all'ufficio cantonale
           competente, non arriva automaticamente.
         </p>
-      </Section>
+      </Panel>
 
-      <Section id="scadenze" title="9. Scadenze — la parte che fa perdere più occasioni di risparmio" video>
+      <Panel id="scadenze" title="9. Scadenze — la parte che fa perdere più occasioni di risparmio" video open={openIds.has("scadenze")} onToggle={() => toggle("scadenze")}>
         <ul style={{ paddingLeft: 20 }}>
           <li style={li}>
             <b>Cambio cassa (LAMal), modello standard/franchigia libera:</b> disdetta entro il
@@ -272,9 +320,9 @@ export default function Guide() {
             complementare.
           </li>
         </ul>
-      </Section>
+      </Panel>
 
-      <Section id="situazioni-particolari" title="10. Situazioni particolari">
+      <Panel id="situazioni-particolari" title="10. Situazioni particolari" open={openIds.has("situazioni-particolari")} onToggle={() => toggle("situazioni-particolari")}>
         <p style={note}>(Contenuti da sviluppare più nel dettaglio in futuro.)</p>
         <ul style={{ paddingLeft: 20 }}>
           <li style={li}>Neonati: 3 mesi di tempo dalla nascita, copertura retroattiva se rispettato.</li>
@@ -283,7 +331,7 @@ export default function Guide() {
           <li style={li}>Disoccupati: restano coperti da LAINF per gli infortuni se rispettano i requisiti per l'indennità.</li>
           <li style={li}>Pensionati: al raggiungimento dell'età pensionabile, la copertura infortuni torna automaticamente in cassa malati (non più coperta dal datore).</li>
         </ul>
-      </Section>
+      </Panel>
     </div>
   );
 }

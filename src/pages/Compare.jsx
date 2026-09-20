@@ -34,14 +34,21 @@ function formatPremium(monthly) {
 
 function FieldExplainer({ question, text, example, children }) {
   return (
-    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
-      <p style={{ fontWeight: 700, margin: "0 0 8px", fontSize: 15 }}>{question}</p>
-      <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>{text}</p>
+    <div
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-section)",
+        padding: 20,
+      }}
+    >
+      <p style={{ fontWeight: 700, margin: "0 0 8px", fontSize: 16 }}>{question}</p>
+      <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px", lineHeight: 1.5 }}>{text}</p>
       {example && (
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>{example}</p>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 12px", lineHeight: 1.5 }}>{example}</p>
       )}
       <VideoPlaceholder />
-      {children}
+      <div style={{ marginTop: 4 }}>{children}</div>
     </div>
   );
 }
@@ -199,53 +206,63 @@ export default function Compare() {
         </p>
       </div>
 
-      <form className="card" onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
-        <label>
-          NPA / Comune
-          <input
-            required
-            value={form.plz}
-            onChange={(e) => handlePlzChange(e.target.value)}
-            placeholder="3904"
-          />
-        </label>
-
-        {regionOptions && (
+      <form className="card" onSubmit={handleSubmit} style={{ display: "grid", gap: 24 }}>
+        <div
+          style={{
+            display: "grid",
+            gap: 16,
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-section)",
+            padding: 20,
+          }}
+        >
           <label>
-            Il tuo CAP copre più regioni di premio — scegli la tua
-            <select defaultValue="" onChange={(e) => handleRegionPick(e.target.value)}>
-              <option value="" disabled>Seleziona la regione</option>
-              {regionOptions.map((r, i) => (
-                <option key={i} value={i}>{r.canton} — {r.regionCode}</option>
+            NPA / Comune
+            <input
+              required
+              value={form.plz}
+              onChange={(e) => handlePlzChange(e.target.value)}
+              placeholder="3904"
+            />
+          </label>
+
+          {regionOptions && (
+            <label>
+              Il tuo CAP copre più regioni di premio — scegli la tua
+              <select defaultValue="" onChange={(e) => handleRegionPick(e.target.value)}>
+                <option value="" disabled>Seleziona la regione</option>
+                {regionOptions.map((r, i) => (
+                  <option key={i} value={i}>{r.canton} — {r.regionCode}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <label>
+            Anno di nascita
+            <input
+              required
+              type="number"
+              value={form.birthYear}
+              onChange={(e) => setForm({ ...form, birthYear: e.target.value })}
+              placeholder="1992"
+            />
+          </label>
+
+          <label>
+            Cassa attuale
+            <select
+              required
+              value={form.currentBagNumber}
+              onChange={(e) => setForm({ ...form, currentBagNumber: e.target.value })}
+            >
+              <option value="" disabled>Seleziona la tua cassa</option>
+              {insurers.map((i) => (
+                <option key={i.bagNumber} value={i.bagNumber}>{i.name}</option>
               ))}
             </select>
           </label>
-        )}
-
-        <label>
-          Anno di nascita
-          <input
-            required
-            type="number"
-            value={form.birthYear}
-            onChange={(e) => setForm({ ...form, birthYear: e.target.value })}
-            placeholder="1992"
-          />
-        </label>
-
-        <label>
-          Cassa attuale
-          <select
-            required
-            value={form.currentBagNumber}
-            onChange={(e) => setForm({ ...form, currentBagNumber: e.target.value })}
-          >
-            <option value="" disabled>Seleziona la tua cassa</option>
-            {insurers.map((i) => (
-              <option key={i.bagNumber} value={i.bagNumber}>{i.name}</option>
-            ))}
-          </select>
-        </label>
+        </div>
 
         <FieldExplainer
           question="Come vuoi accedere alle cure quando ti servono?"
@@ -258,6 +275,7 @@ export default function Compare() {
                 <div
                   key={code}
                   style={{
+                    background: "#FFFFFF",
                     border: "1px solid var(--border)",
                     borderRadius: "var(--radius-section)",
                     padding: "10px 12px",
@@ -443,14 +461,31 @@ export default function Compare() {
                   ))}
                 </select>
               </label>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: "left", padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "10px 8px",
+                        borderBottom: "2px solid var(--border)",
+                        background: "var(--surface)",
+                        fontWeight: 700,
+                      }}
+                    >
                       Franchigia
                     </th>
                     {grid.tariffCodes.map((code) => (
-                      <th key={code} style={{ textAlign: "right", padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
+                      <th
+                        key={code}
+                        style={{
+                          textAlign: "right",
+                          padding: "10px 8px",
+                          borderBottom: "2px solid var(--border)",
+                          background: "var(--surface)",
+                          fontWeight: 700,
+                        }}
+                      >
                         {CONCEPTS["modelli-tariffari"].options[code]?.title ?? code}
                       </th>
                     ))}
@@ -459,36 +494,40 @@ export default function Compare() {
                 <tbody>
                   {grid.franchises.map((f) => (
                     <tr key={f}>
-                      <td style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>{f} CHF</td>
+                      <td style={{ padding: "8px", borderBottom: "1px solid var(--border)" }}>{f} CHF</td>
                       {grid.tariffCodes.map((code) => {
                         const premium = grid.cell(f, code);
                         const isCurrent = isOwnInsurerView && f === form.currentFranchise && code === form.currentTariff;
                         const isRecommendedPrimary = isOwnInsurerView && recommendedSameInsurer && f === recommendedFranchise && code === recommendedTariff;
                         const isRecommendedNeutral = !isOwnInsurerView && result.best && gridInsurer === result.best.bagNumber && f === result.best.franchise && code === result.best.tariffCode;
+                        const highlighted = isCurrent || isRecommendedPrimary || isRecommendedNeutral;
                         return (
                           <td
                             key={code}
                             style={{
-                              padding: "6px 8px",
+                              padding: "8px",
                               borderBottom: "1px solid var(--border)",
                               textAlign: "right",
-                              outline: isCurrent
-                                ? "2px solid var(--text)"
+                              fontWeight: highlighted ? 700 : 400,
+                              boxShadow: isCurrent
+                                ? "inset 0 0 0 2px var(--text)"
                                 : isRecommendedPrimary
-                                  ? "2px solid var(--primary-border)"
+                                  ? "inset 0 0 0 2px var(--primary)"
                                   : isRecommendedNeutral
-                                    ? "2px solid var(--text-muted)"
+                                    ? "inset 0 0 0 2px var(--text-muted)"
                                     : "none",
                               background: isRecommendedPrimary
                                 ? "var(--primary-light)"
-                                : isRecommendedNeutral
+                                : isCurrent
                                   ? "var(--surface-alt)"
-                                  : "transparent",
+                                  : isRecommendedNeutral
+                                    ? "var(--surface-alt)"
+                                    : "transparent",
                             }}
                           >
                             {premium == null ? "–" : formatPremium(premium)}
-                            {(isCurrent || isRecommendedPrimary || isRecommendedNeutral) && (
-                              <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>
+                            {highlighted && (
+                              <div style={{ fontSize: 10, fontWeight: 700, color: isRecommendedPrimary ? "var(--primary)" : "var(--text-secondary)" }}>
                                 {isCurrent && isRecommendedPrimary
                                   ? "attuale e consigliata"
                                   : isCurrent
